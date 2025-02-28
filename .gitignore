@@ -1,0 +1,6 @@
+.venv
+/langchain/ragname_deepseek/chroma_db
+chroma_db
+search_results
+logs
+.vscode
