@@ -17,12 +17,6 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from typing import List, Dict, Any
 
 # 1. PromptTemplate - 基础模板
-# 核心原理：PromptTemplate是LangChain中最基础的模板类型，它通过变量插值机制实现动态提示词生成
-# 工作机制：
-# 1. 定义模板字符串，使用{variable}语法标记变量位置
-# 2. 指定input_variables列表，声明所需的变量名
-# 3. 调用format方法时，将实际值替换到对应的变量位置
-# 4. 内部使用Python的str.format()方法实现字符串格式化
 def basic_prompt_template_example():
     """
     PromptTemplate是最基础的模板类型，用于创建简单的提示模板。
@@ -36,8 +30,6 @@ def basic_prompt_template_example():
     以下示例展示了如何使用PromptTemplate创建一个简单的产品介绍生成器。
     """
     # 创建一个简单的产品介绍模板
-    # 实现原理：通过定义模板字符串和变量列表，创建一个可重用的提示模板
-    # 变量插值过程：format方法将实际参数映射到模板中的占位符
     product_prompt = PromptTemplate(
         input_variables=["product_name", "features", "price"],
         template="""请为以下产品生成一个简短的介绍：
@@ -50,7 +42,6 @@ def basic_prompt_template_example():
     )
     
     # 使用示例
-    # 实际应用：传入具体参数，生成完整的提示文本
     description = product_prompt.format(
         product_name="智能手表 Mini",
         features="防水、心率监测、运动追踪",
@@ -59,158 +50,148 @@ def basic_prompt_template_example():
     return description
 
 
-# 2. StringPromptTemplate - 字符串提示模板
 def string_prompt_template_example():
     """
-    StringPromptTemplate示例：展示自定义字符串模板的高级特性
+    StringPromptTemplate是一个抽象基类，用于创建自定义的提示模板。
+    
+    主要特点：
+    - 支持自定义字符串格式化逻辑
+    - 可以添加额外的处理步骤
+    - 适合复杂的模板需求
+    - 支持输入验证和错误处理
+    
+    使用场景：
+    - 需要自定义格式化逻辑的场合
+    - 复杂的模板处理需求
+    - 多语言支持
+    - 特殊格式的输出需求
+    
+    示例说明：
+    以下示例展示了如何创建一个自定义的翻译模板，包含输入验证和错误处理。
     """
-    # 创建一个继承自StringPromptTemplate的自定义模板类
-    # 实现原理：通过重写format方法实现变量自动注入和自定义处理
-    class TranslationPromptTemplate(StringPromptTemplate):
-        input_variables: List[str] = ["text", "target_language", "formality_level"]
+    class CustomTranslationPrompt(StringPromptTemplate):
         template: str
-    
-        def __init__(self, template: str, input_variables: List[str]):
-            super().__init__(template=template, input_variables=input_variables)
-            self.template = template
-    
+        input_variables: list[str]
+        
         def format(self, **kwargs) -> str:
-            # 自动注入系统时间
-            from datetime import datetime
-            kwargs["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # 输入验证
+            required_vars = ["text", "target_language", "formality_level"]
+            for var in required_vars:
+                if var not in kwargs:
+                    raise ValueError(f"Missing required variable: {var}")
+                    
+            # 格式化处理
+            if kwargs["formality_level"] not in ["formal", "casual", "neutral"]:
+                raise ValueError("formality_level must be one of: formal, casual, neutral")
+                
+            # 添加额外的处理逻辑
+            kwargs["source_language"] = "自动检测"
+            kwargs["timestamp"] = "2024-03-15"
             
-            # 自动检测源语言（这里简化处理）
-            if "source_language" not in kwargs:
-                kwargs["source_language"] = "自动检测"
-            
-            # 设置默认的语言风格
-            kwargs["formality_level"] = kwargs.get("formality_level", "standard")
-            
-            # 使用template进行字符串格式化
             return self.template.format(**kwargs)
     
-    # 创建翻译模板实例
-    translation_prompt = TranslationPromptTemplate(
-        input_variables=["text", "target_language"],  # 只需要指定必要的变量
-        template="""
-        [系统时间: {timestamp}]
+    # 创建一个自定义的翻译模板
+    translation_prompt = CustomTranslationPrompt(
+        template="""[系统时间: {timestamp}]
 
-        请将以下文本从{source_language}翻译成{target_language}：
+请将以下文本从{source_language}翻译成{target_language}：
 
-        原文：{text}
+原文：{text}
 
-        翻译要求：
-        - 语言风格：{formality_level}
-        - 保持原文的语气和风格
-        - 确保专业术语的准确性
-        - 适应目标语言的文化背景
+翻译要求：
+- 语言风格：{formality_level}
+- 保持原文的语气和风格
+- 确保专业术语的准确性
+- 适应目标语言的文化背景
 
-        翻译结果：
-        [在此处提供翻译]
+翻译结果：
+[在此处提供翻译]
 
-        注意事项：
-        - 如遇专业术语，请提供标准翻译
-        - 如有文化差异，请适当调整表达方式
-        - 确保符合目标语言的表达习惯"""
+注意事项：
+- 如遇专业术语，请提供标准翻译
+- 如有文化差异，请适当调整表达方式
+- 确保符合目标语言的表达习惯""",
+        input_variables=["text", "target_language", "formality_level"]
     )
     
-    # 使用示例 - 只需提供必要参数，其他参数由模板自动处理
-    translation = translation_prompt.format(
-        text="人工智能正在重塑我们的生活方式。",
-        target_language="英语",
-        formality_level = "formal"
-    )
+    try:
+        # 使用示例 - 正确用法
+        translation = translation_prompt.format(
+            text="人工智能正在重塑我们的生活方式。",
+            target_language="英语",
+            formality_level="formal"
+        )
+        
+        # 使用示例 - 错误用法（用于演示错误处理）
+        error_translation = translation_prompt.format(
+            text="测试文本",
+            target_language="英语",
+            formality_level="invalid_level"  # 这将触发验证错误
+        )
+    except ValueError as e:
+        translation = f"错误：{str(e)}"
     
-    # 返回翻译结果
     return translation
 
-# 3. StructuredPromptTemplate - 结构化提示模板
-# 核心原理：将提示信息组织为结构化的消息列表，支持角色定义和多轮对话
-# 工作机制：
-# 1. 使用StructuredPrompt定义输入模式和验证规则
-# 2. 通过自定义数据转换实现复杂的数据处理
-# 3. 支持结构化的输入验证和格式化
+# 3. StructuredPrompt - 结构化模板
 def structured_prompt_template_example():
     """
-    结构化提示模板示例：展示StructuredPrompt的高级特性
+    StructuredPrompt用于创建具有固定输出结构的提示模板，它继承自ChatPromptTemplate。
+    
+    主要特点：
+    - 支持通过Pydantic模型定义输出结构
+    - 确保输出格式符合预定义的schema
+    - 适合需要结构化输出的场景
+    - 支持对话式提示模板
+    
+    使用场景：
+    - API响应生成
+    - 结构化数据提取
+    - 标准化数据处理
+    - 对话式数据分析
+    
+    示例说明：
+    以下示例展示了如何使用StructuredPrompt创建一个产品分析助手，
+    通过定义输出schema和对话模板，生成结构化的产品分析结果。
     """
-    # 创建结构化提示模板实例
-    # 实现原理：通过定义输入模式和验证规则，实现结构化的数据处理
-    # 创建系统消息模板
-    system_template = SystemMessagePromptTemplate.from_template("你是一个专业的市场分析师，请根据提供的产品信息进行分析。")
+    from pydantic import BaseModel, Field
     
-    # 创建人类消息模板
-    human_template = HumanMessagePromptTemplate.from_template("""
-    请对以下产品进行全面的市场分析：
-        产品信息：
-            名称：{product_info[name]}
-            描述：{product_info[description]}
-            价格：{product_info[price]}元
-            特点：{product_info[features]}
-        市场分析：
-            目标用户：{market_analysis[target_users]}
-            竞品分析：{market_analysis[competitors]}
-            市场规模：{market_analysis[market_size]}
-    请提供详细的SWOT分析报告。""")
+    # 定义输出结构的schema
+    class ProductAnalysis(BaseModel):
+        product_name: str = Field(description="产品名称")
+        target_market: str = Field(description="目标市场定位")
+        strengths: list[str] = Field(description="产品优势，最多3点")
+        weaknesses: list[str] = Field(description="产品劣势，最多3点")
+        opportunities: list[str] = Field(description="市场机会，最多3点")
+        threats: list[str] = Field(description="潜在威胁，最多3点")
+        recommendations: list[str] = Field(description="改进建议，最多3点")
     
-    # 创建结构化提示模板实例
+    # 创建对话式提示模板
+    messages = [
+        ("system", "你是一个专业的产品分析师，擅长进行SWOT分析。请根据用户提供的产品信息，生成结构化的分析报告。"),
+        ("human", "请分析这个产品：{product_description}\n价格区间：{price_range}\n目标用户：{target_users}"),
+        ("ai", "我会基于您提供的信息进行全面分析。")
+    ]
+    
+    # 创建结构化提示模板
     analysis_prompt = StructuredPrompt(
-        messages=[system_template, human_template],
-        schema={
-            "type": "object",
-            "properties": {
-                "product_info": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string"},
-                        "description": {"type": "string"},
-                        "price": {"type": "number", "minimum": 0},
-                        "features": {"type": "array", "items": {"type": "string"}}
-                    },
-                    "required": ["name", "description", "price"]
-                },
-                "market_analysis": {
-                    "type": "object",
-                    "properties": {
-                        "target_users": {"type": "string"},
-                        "competitors": {"type": "array", "items": {"type": "string"}},
-                        "market_size": {"type": "string"}
-                    },
-                    "required": ["target_users"]
-                }
-            },
-            "required": ["product_info"]
+        messages=messages,
+        schema_=ProductAnalysis,
+        structured_output_kwargs={
+            "name": "analyze_product",
+            "description": "分析产品并生成结构化的SWOT分析报告"
         }
     )
     
     # 使用示例
-    # 参数映射：传入结构化的产品和市场信息
-    product_info = {
-        "name": "智能手表Pro",
-        "description": "高性能智能运动手表",
-        "price": 1499,
-        "features": ["心率监测", "运动追踪", "睡眠分析", "7天续航"]
-    }
-    
-    market_analysis = {
-        "target_users": "注重健康的年轻白领和运动爱好者",
-        "competitors": ["Apple Watch", "华为手表", "小米手环"],
-        "market_size": "预计2024年达到1000亿元"
-    }
-    
     analysis = analysis_prompt.format(
-        product_info=product_info,
-        market_analysis=market_analysis
+        product_description="智能手表Pro，支持心率监测、运动追踪、睡眠分析，续航时间7天",
+        price_range="1299-1599元",
+        target_users="注重健康的年轻白领和运动爱好者"
     )
     return analysis
 
 # 4. PipelinePromptTemplate - 管道模板
-# 核心原理：实现多个提示模板的串联处理，支持复杂的提示生成流程
-# 工作机制：
-# 1. 定义多个独立的提示模板，每个模板负责特定的处理阶段
-# 2. 通过pipeline_prompts参数指定模板之间的连接关系
-# 3. 前一个模板的输出作为后一个模板的输入
-# 4. 最终模板（final_prompt）生成最终的提示文本
 def pipeline_prompt_template_example():
     """
     PipelinePromptTemplate用于创建多阶段的提示处理流程。
@@ -231,7 +212,6 @@ def pipeline_prompt_template_example():
     内容编写和练习题生成三个阶段。
     """
     # 创建大纲生成模板
-    # 第一阶段：定义课程大纲结构
     outline_prompt = PromptTemplate(
         input_variables=["topic", "education_level", "learning_objectives"],
         template="""请为以下教育内容创建详细大纲：
@@ -253,7 +233,6 @@ def pipeline_prompt_template_example():
     )
     
     # 创建内容编写模板
-    # 第二阶段：基于大纲生成详细内容
     content_prompt = PromptTemplate(
         input_variables=["outline", "teaching_style", "examples"],
         template="""基于以下大纲，创建详细的教学内容：
@@ -272,7 +251,6 @@ def pipeline_prompt_template_example():
     )
     
     # 创建练习题生成模板
-    # 第三阶段：生成配套练习题
     exercise_prompt = PromptTemplate(
         input_variables=["content", "difficulty_level", "question_types"],
         template="""基于以下教学内容，生成练习题：
@@ -290,8 +268,6 @@ def pipeline_prompt_template_example():
     )
     
     # 创建管道模板
-    # 实现原理：通过pipeline_prompts参数定义模板之间的数据流
-    # 数据流转：outline_prompt -> content_prompt -> exercise_prompt
     pipeline_prompt = PipelinePromptTemplate(
         final_prompt=exercise_prompt,
         pipeline_prompts=[
@@ -301,26 +277,22 @@ def pipeline_prompt_template_example():
     )
     
     # 使用示例
-    # 参数传递：所有需要的参数都在这里指定，由管道自动处理数据流转
-    final_prompt = pipeline_prompt.format(
-        topic="Python基础编程：循环结构",
-        education_level="高中信息技术",
-        learning_objectives="理解和掌握Python中的for和while循环使用",
-        teaching_style="互动式，以实例为导向",
-        examples="日常生活中的循环案例",
-        difficulty_level="中等",
-        question_types="选择题、编程题、应用题"
-    )
-
+    try:
+        final_prompt = pipeline_prompt.format(
+            topic="Python基础编程：循环结构",
+            education_level="高中信息技术",
+            learning_objectives="理解和掌握Python中的for和while循环使用",
+            teaching_style="互动式，以实例为导向",
+            examples="日常生活中的循环案例",
+            difficulty_level="中等",
+            question_types="选择题、编程题、应用题"
+        )
+    except Exception as e:
+        final_prompt = f"错误：{str(e)}"
+    
     return final_prompt
 
 # 5. FewShotPromptTemplate - 少样本模板
-# 核心原理：通过提供少量示例来指导模型理解任务模式
-# 工作机制：
-# 1. 定义示例列表，每个示例包含输入和期望输出
-# 2. 创建示例格式模板，规定示例的展示方式
-# 3. 设置prefix和suffix，构建完整的提示结构
-# 4. 在运行时，将示例和待处理数据组合成最终提示
 def few_shot_prompt_template_example():
     """
     FewShotPromptTemplate用于基于少量示例进行提示。
@@ -341,22 +313,17 @@ def few_shot_prompt_template_example():
     通过提供少量带标注的示例，帮助模型更好地理解任务要求。
     """
     # 创建一个文本分类的示例模板
-    # 示例设计：选择具有代表性的样本，覆盖不同情感类别
     examples = [
         {"text": "这个产品质量很好，很耐用", "sentiment": "正面"},
         {"text": "价格太贵了，不太划算", "sentiment": "负面"},
         {"text": "一般般，没什么特别的", "sentiment": "中性"}
     ]
     
-    # 定义示例格式
-    # 格式设计
     example_prompt = PromptTemplate(
         input_variables=["text", "sentiment"],
         template="文本: {text}\n情感: {sentiment}"
     )
     
-    # 实现原理：通过组合示例和模板，构建完整的少样本学习提示
-    # 数据流设计：examples -> example_prompt -> prefix/suffix -> final prompt
     few_shot_prompt = FewShotPromptTemplate(
         examples=examples,
         example_prompt=example_prompt,
@@ -366,19 +333,12 @@ def few_shot_prompt_template_example():
     )
     
     # 使用示例
-    # 实际应用：将新的输入文本与示例结合，生成完整的提示
     classification = few_shot_prompt.format(
         input_text="这个商品的包装很精美，但是发货太慢了"
     )
     return classification
 
 # 6. ChatPromptTemplate - 对话模板
-# 核心原理：构建结构化的对话流程，支持多角色交互和上下文管理
-# 工作机制：
-# 1. 定义不同角色的消息模板（系统、用户、AI）
-# 2. 通过模板组合构建完整的对话流程
-# 3. 支持变量插值和角色切换
-# 4. 维护对话的上下文连续性
 def chat_prompt_template_example():
     """
     ChatPromptTemplate用于创建对话式的提示模板。
@@ -399,20 +359,14 @@ def chat_prompt_template_example():
     用户输入和AI响应三个部分，可以处理产品咨询、技术支持等场景。
     """
     # 创建一个客服对话模板
-    # 实现原理：通过定义不同角色的消息模板，构建完整的对话流程
-    # 角色设计：系统指令设定基础行为，用户输入触发交互，AI响应提供服务
     system_template = "你是一个专业的{role}，专门解答关于{product}的问题。请使用{tone}的语气。"
     human_template = "{question}"
     ai_template = "我理解您的问题是关于{product}的{question_type}。让我为您详细解答：\n{answer}"
     
-    # 消息模板实例化
-    # 模板组装：将不同角色的模板转换为对应的消息类型
     system_message = SystemMessagePromptTemplate.from_template(system_template)
     human_message = HumanMessagePromptTemplate.from_template(human_template)
     ai_message = AIMessagePromptTemplate.from_template(ai_template)
     
-    # 创建对话模板
-    # 流程设计：按照系统指令->用户问题->AI回答的顺序组织对话流程
     chat_prompt = ChatPromptTemplate.from_messages([
         system_message,
         human_message,
@@ -420,7 +374,6 @@ def chat_prompt_template_example():
     ])
     
     # 使用示例
-    # 参数映射：将具体的角色、产品和问题信息注入到对话模板中
     messages = chat_prompt.format_messages(
         role="技术支持专家",
         product="智能手机",
@@ -429,22 +382,9 @@ def chat_prompt_template_example():
         question_type="技术支持",
         answer="以下是几个有效的解决方案：\n1. 检查耗电应用\n2. 开启省电模式\n3. 调整屏幕亮度\n4. 关闭不必要的后台进程\n5. 定期进行系统更新"
     )
-    
-    # 格式化输出消息内容
-    formatted_messages = "\n"
-    for i, msg in enumerate(messages):
-        msg_type = type(msg).__name__
-        formatted_messages += f"\n消息 {i+1} ({msg_type}):\n{'-'*50}\n{msg.content}\n{'-'*50}\n"
-    
-    # 返回消息列表和格式化后的内容
-    return formatted_messages
+    return messages
 
 # 7. ImagePromptTemplate - 图像提示模板
-# 核心原理：扩展基础模板以支持图像处理任务，实现多模态交互
-# 工作机制：
-# 1. 支持图像URL和细节信息的模板变量
-# 2. 通过template_format指定格式化方式
-# 3. 可以结合其他模板类型处理复杂的多模态任务
 def image_prompt_template_example():
     """
     ImagePromptTemplate用于处理多模态模型的图像提示。
