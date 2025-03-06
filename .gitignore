@@ -4,3 +4,4 @@ chroma_db
 search_results
 logs
 .vscode
+.env
